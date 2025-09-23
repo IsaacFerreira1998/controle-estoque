@@ -287,7 +287,7 @@ pause`;
                   <SelectValue placeholder="Selecione uma categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma</SelectItem>
+                  <SelectItem value="none">Nenhuma</SelectItem>
                   <SelectItem value="eletronicos">Eletrônicos</SelectItem>
                   <SelectItem value="ferramentas">Ferramentas</SelectItem>
                   <SelectItem value="moveis">Móveis</SelectItem>

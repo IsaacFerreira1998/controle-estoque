@@ -103,7 +103,7 @@ export default function Relatorios() {
                   <SelectValue placeholder="Todas as categorias" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
                   <SelectItem value="eletronicos">Eletrônicos</SelectItem>
                   <SelectItem value="ferramentas">Ferramentas</SelectItem>
                   <SelectItem value="moveis">Móveis</SelectItem>
@@ -118,7 +118,7 @@ export default function Relatorios() {
                   <SelectValue placeholder="Todos os projetos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="escritorio">Escritório Matriz</SelectItem>
                   <SelectItem value="obra">Obra Centro</SelectItem>
                   <SelectItem value="filial">Filial Norte</SelectItem>
