@@ -1,7 +1,9 @@
 import { StatsCard } from "@/components/dashboard/StatsCard";
+import { AdvancedCharts } from "@/components/dashboard/AdvancedCharts";
+import { ExcelExportButton } from "@/components/excel/ExcelExportButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Package, PackagePlus, PackageMinus, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Package, PackagePlus, PackageMinus, AlertTriangle, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
 const movimentacaoData = [
@@ -33,11 +35,14 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Visão geral do sistema de estoque
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold gradient-text">Dashboard EstoqueMax</h1>
+          <p className="text-muted-foreground">
+            Visão geral completa do sistema de estoque - BI Integrado
+          </p>
+        </div>
+        <ExcelExportButton fileName="Dashboard_EstoqueMax_BI" />
       </div>
 
       {/* Stats Cards */}
@@ -128,35 +133,19 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Alertas de Estoque */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-exit" />
-            Alertas de Estoque Baixo
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {alertas.map((alerta, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-exit/5 border border-exit/20 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-exit rounded-full"></div>
-                  <div>
-                    <p className="font-medium">{alerta.produto}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {alerta.categoria} • Estoque atual: {alerta.estoque} • Mínimo: {alerta.minimo}
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm">
-                  Solicitar Compra
-                </Button>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Business Intelligence - Análises Avançadas */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-6 w-6 text-primary" />
+          <h2 className="text-2xl font-bold gradient-text">Business Intelligence</h2>
+          <div className="flex-1"></div>
+          <Button className="gradient-primary" size="sm">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Relatório Completo
+          </Button>
+        </div>
+        <AdvancedCharts />
+      </div>
     </div>
   );
 }

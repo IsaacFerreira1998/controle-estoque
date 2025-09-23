@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Edit, Trash2, Package } from "lucide-react";
+import { ExcelExportButton } from "@/components/excel/ExcelExportButton";
+import { Plus, Search, Edit, Trash2, Package, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const produtos = [
@@ -93,20 +94,23 @@ export default function Produtos() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Produtos</h1>
+          <h1 className="text-3xl font-bold gradient-text">Produtos</h1>
           <p className="text-muted-foreground">
-            Gerencie o cadastro de produtos
+            Gerencie o cadastro completo de produtos do estoque
           </p>
         </div>
-        <Button 
-          onClick={() => setMostrarFormulario(!mostrarFormulario)}
-          className="gradient-primary"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Produto
-        </Button>
+        <div className="flex gap-2">
+          <ExcelExportButton fileName="Produtos_EstoqueMax" />
+          <Button 
+            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+            className="gradient-primary"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Produto
+          </Button>
+        </div>
       </div>
 
       {/* Formulário de Cadastro */}
