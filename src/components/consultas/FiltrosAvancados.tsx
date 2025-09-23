@@ -76,7 +76,7 @@ export function FiltrosAvancados({ filtros, setFiltros, tipoConsulta, onBuscar, 
                   <SelectValue placeholder="Todas as categorias" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas as categorias</SelectItem>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
                   {categorias.map(categoria => (
                     <SelectItem key={categoria} value={categoria}>
                       {categoria}
@@ -93,7 +93,7 @@ export function FiltrosAvancados({ filtros, setFiltros, tipoConsulta, onBuscar, 
                   <SelectValue placeholder="Todos os fornecedores" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os fornecedores</SelectItem>
+                  <SelectItem value="all">Todos os fornecedores</SelectItem>
                   {fornecedores.map(fornecedor => (
                     <SelectItem key={fornecedor} value={fornecedor}>
                       {fornecedor}
@@ -110,7 +110,7 @@ export function FiltrosAvancados({ filtros, setFiltros, tipoConsulta, onBuscar, 
                   <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="ok">Estoque OK</SelectItem>
                   <SelectItem value="baixo">Estoque Baixo</SelectItem>
                   <SelectItem value="zerado">Estoque Zerado</SelectItem>
@@ -138,7 +138,7 @@ export function FiltrosAvancados({ filtros, setFiltros, tipoConsulta, onBuscar, 
                   <SelectValue placeholder="Todos os tipos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os tipos</SelectItem>
+                  <SelectItem value="all">Todos os tipos</SelectItem>
                   <SelectItem value="entrada">Entradas</SelectItem>
                   <SelectItem value="saida">Saídas</SelectItem>
                 </SelectContent>
@@ -161,7 +161,7 @@ export function FiltrosAvancados({ filtros, setFiltros, tipoConsulta, onBuscar, 
                   <SelectValue placeholder="Todos os projetos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os projetos</SelectItem>
+                  <SelectItem value="all">Todos os projetos</SelectItem>
                   {projetos.map(projeto => (
                     <SelectItem key={projeto} value={projeto}>
                       {projeto}
@@ -182,7 +182,7 @@ export function FiltrosAvancados({ filtros, setFiltros, tipoConsulta, onBuscar, 
                   <SelectValue placeholder="Todos os status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos os status</SelectItem>
+                  <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="ativo">Ativo</SelectItem>
                   <SelectItem value="inativo">Inativo</SelectItem>
                 </SelectContent>
