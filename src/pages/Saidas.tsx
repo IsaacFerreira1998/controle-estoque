@@ -5,10 +5,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { PackageMinus, Plus, Calendar, Building2, User } from "lucide-react";
+import { PackageMinus, Plus, Calendar, Building2, User, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const saidas = [
+interface Saida {
+  id: number;
+  data: string;
+  hora: string;
+  produto: string;
+  codigo: string;
+  quantidade: number;
+  responsavel: string;
+  projeto: string;
+  empresa: string;
+  destino: string;
+  observacoes?: string;
+}
+
+const STORAGE_KEY = "estoquemax-saidas";
+
+const saidasIniciais: Saida[] = [
   {
     id: 1,
     data: "2024-01-15",
@@ -47,6 +63,18 @@ const saidas = [
   }
 ];
 
+function carregarSaidas(): Saida[] {
+  try {
+    const salvo = localStorage.getItem(STORAGE_KEY);
+    if (salvo) return JSON.parse(salvo);
+  } catch { }
+  return saidasIniciais;
+}
+
+function salvarSaidas(saidas: Saida[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saidas));
+}
+
 const produtos = [
   { codigo: "ELE001", nome: "Monitor LED 24\"", estoque: 15 },
   { codigo: "FER002", nome: "Chave Phillips 6mm", estoque: 5 },
@@ -56,51 +84,78 @@ const produtos = [
 const projetos = ["Escritório Matriz", "Manutenção Predial", "Nova Filial", "Obra Centro", "Reforma Geral"];
 const empresas = ["TechSolutions", "ManuCorp", "Construtora ABC", "Outros"];
 
+const novaSaidaVazia = {
+  data: new Date().toISOString().split('T')[0],
+  hora: new Date().toTimeString().slice(0, 5),
+  produto: "",
+  quantidade: "",
+  responsavel: "",
+  projeto: "",
+  empresa: "",
+  destino: "",
+  observacoes: ""
+};
+
 export default function Saidas() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [saidas, setSaidas] = useState<Saida[]>(carregarSaidas);
   const { toast } = useToast();
 
-  const [novaSaida, setNovaSaida] = useState({
-    data: new Date().toISOString().split('T')[0],
-    hora: new Date().toTimeString().slice(0, 5),
-    produto: "",
-    quantidade: "",
-    responsavel: "",
-    projeto: "",
-    empresa: "",
-    destino: "",
-    observacoes: ""
-  });
+  const [novaSaida, setNovaSaida] = useState(novaSaidaVazia);
 
   const produtoSelecionado = produtos.find(p => p.codigo === novaSaida.produto);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (produtoSelecionado && parseInt(novaSaida.quantidade) > produtoSelecionado.estoque) {
       toast({
-        title: "Erro!",
-        description: "Quantidade solicitada maior que o estoque disponível.",
+        title: "Estoque insuficiente!",
+        description: `Quantidade solicitada (${novaSaida.quantidade}) maior que o estoque disponível (${produtoSelecionado.estoque}).`,
         variant: "destructive"
       });
       return;
     }
 
+    const nova: Saida = {
+      id: Date.now(),
+      data: novaSaida.data,
+      hora: novaSaida.hora,
+      produto: produtoSelecionado?.nome || novaSaida.produto,
+      codigo: novaSaida.produto,
+      quantidade: Number(novaSaida.quantidade),
+      responsavel: novaSaida.responsavel,
+      projeto: novaSaida.projeto,
+      empresa: novaSaida.empresa,
+      destino: novaSaida.destino,
+      observacoes: novaSaida.observacoes
+    };
+
+    const atualizadas = [nova, ...saidas];
+    setSaidas(atualizadas);
+    salvarSaidas(atualizadas);
+
     toast({
       title: "Saída registrada!",
-      description: `Saída de ${novaSaida.quantidade} unidades registrada com sucesso.`,
+      description: `Saída de ${nova.quantidade} unidades de ${nova.produto} registrada com sucesso.`,
     });
+
     setMostrarFormulario(false);
     setNovaSaida({
+      ...novaSaidaVazia,
       data: new Date().toISOString().split('T')[0],
-      hora: new Date().toTimeString().slice(0, 5),
-      produto: "",
-      quantidade: "",
-      responsavel: "",
-      projeto: "",
-      empresa: "",
-      destino: "",
-      observacoes: ""
+      hora: new Date().toTimeString().slice(0, 5)
+    });
+  };
+
+  const handleDeletar = (saida: Saida) => {
+    const atualizadas = saidas.filter(s => s.id !== saida.id);
+    setSaidas(atualizadas);
+    salvarSaidas(atualizadas);
+    toast({
+      title: "Saída removida!",
+      description: `Registro de saída de ${saida.produto} foi excluído.`,
+      variant: "destructive"
     });
   };
 
@@ -117,7 +172,7 @@ export default function Saidas() {
             Registre retiradas de produtos do estoque
           </p>
         </div>
-        <Button 
+        <Button
           onClick={() => setMostrarFormulario(!mostrarFormulario)}
           className="gradient-danger"
         >
@@ -143,7 +198,7 @@ export default function Saidas() {
                   id="data"
                   type="date"
                   value={novaSaida.data}
-                  onChange={(e) => setNovaSaida({...novaSaida, data: e.target.value})}
+                  onChange={(e) => setNovaSaida({ ...novaSaida, data: e.target.value })}
                   required
                 />
               </div>
@@ -154,14 +209,14 @@ export default function Saidas() {
                   id="hora"
                   type="time"
                   value={novaSaida.hora}
-                  onChange={(e) => setNovaSaida({...novaSaida, hora: e.target.value})}
+                  onChange={(e) => setNovaSaida({ ...novaSaida, hora: e.target.value })}
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="produto">Produto</Label>
-                <Select onValueChange={(value) => setNovaSaida({...novaSaida, produto: value})}>
+                <Select onValueChange={(value) => setNovaSaida({ ...novaSaida, produto: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o produto" />
                   </SelectTrigger>
@@ -174,15 +229,16 @@ export default function Saidas() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="quantidade">Quantidade</Label>
                 <div className="relative">
                   <Input
                     id="quantidade"
                     type="number"
+                    min="1"
                     value={novaSaida.quantidade}
-                    onChange={(e) => setNovaSaida({...novaSaida, quantidade: e.target.value})}
+                    onChange={(e) => setNovaSaida({ ...novaSaida, quantidade: e.target.value })}
                     placeholder="2"
                     max={produtoSelecionado?.estoque || 999}
                     required
@@ -194,21 +250,21 @@ export default function Saidas() {
                   )}
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="responsavel">Responsável pela Retirada</Label>
                 <Input
                   id="responsavel"
                   value={novaSaida.responsavel}
-                  onChange={(e) => setNovaSaida({...novaSaida, responsavel: e.target.value})}
+                  onChange={(e) => setNovaSaida({ ...novaSaida, responsavel: e.target.value })}
                   placeholder="Carlos Lima"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="projeto">Projeto Vinculado</Label>
-                <Select onValueChange={(value) => setNovaSaida({...novaSaida, projeto: value})}>
+                <Select onValueChange={(value) => setNovaSaida({ ...novaSaida, projeto: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o projeto" />
                   </SelectTrigger>
@@ -221,10 +277,10 @@ export default function Saidas() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="empresa">Empresa</Label>
-                <Select onValueChange={(value) => setNovaSaida({...novaSaida, empresa: value})}>
+                <Select onValueChange={(value) => setNovaSaida({ ...novaSaida, empresa: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a empresa" />
                   </SelectTrigger>
@@ -237,37 +293,38 @@ export default function Saidas() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="destino">Destino/Local</Label>
                 <Input
                   id="destino"
                   value={novaSaida.destino}
-                  onChange={(e) => setNovaSaida({...novaSaida, destino: e.target.value})}
+                  onChange={(e) => setNovaSaida({ ...novaSaida, destino: e.target.value })}
                   placeholder="Sala 102"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2 md:col-span-2 lg:col-span-3">
                 <Label htmlFor="observacoes">Observações</Label>
                 <Input
                   id="observacoes"
                   value={novaSaida.observacoes}
-                  onChange={(e) => setNovaSaida({...novaSaida, observacoes: e.target.value})}
+                  onChange={(e) => setNovaSaida({ ...novaSaida, observacoes: e.target.value })}
                   placeholder="Observações adicionais..."
                 />
               </div>
-              
+
               <div className="md:col-span-2 lg:col-span-3 flex gap-2">
                 <Button type="submit" className="gradient-danger">
                   Registrar Saída
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setMostrarFormulario(false)}
                 >
+                  <X className="h-4 w-4 mr-2" />
                   Cancelar
                 </Button>
               </div>
@@ -285,59 +342,77 @@ export default function Saidas() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {saidas.map((saida) => (
-              <div key={saida.id} className="border border-exit/20 bg-gradient-to-r from-exit/5 to-transparent rounded-lg p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-exit rounded-full"></div>
-                    <div>
-                      <h4 className="font-semibold">{saida.produto}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Código: {saida.codigo}
-                      </p>
+          {saidas.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              Nenhuma saída registrada ainda.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {saidas.map((saida) => (
+                <div key={saida.id} className="border border-exit/20 bg-gradient-to-r from-exit/5 to-transparent rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 bg-exit rounded-full"></div>
+                      <div>
+                        <h4 className="font-semibold">{saida.produto}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Código: {saida.codigo}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-exit text-exit-foreground">
+                        -{saida.quantidade} unidades
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeletar(saida)}
+                        className="hover:text-destructive"
+                        title="Remover registro"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <Badge className="bg-exit text-exit-foreground">
-                    -{saida.quantidade} unidades
-                  </Badge>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Data/Hora:</span>
+                      <p className="font-medium">
+                        {new Date(saida.data + "T00:00:00").toLocaleDateString('pt-BR')} às {saida.hora}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Responsável:</span>
+                      <p className="font-medium flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {saida.responsavel}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Projeto:</span>
+                      <p className="font-medium flex items-center gap-1">
+                        <Building2 className="h-3 w-3" />
+                        {saida.projeto}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Empresa:</span>
+                      <p className="font-medium">{saida.empresa}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-exit/10">
+                    <span className="text-xs text-muted-foreground">
+                      Destino: {saida.destino}
+                      {saida.observacoes && ` — ${saida.observacoes}`}
+                    </span>
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Data/Hora:</span>
-                    <p className="font-medium">
-                      {new Date(saida.data).toLocaleDateString('pt-BR')} às {saida.hora}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Responsável:</span>
-                    <p className="font-medium flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {saida.responsavel}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Projeto:</span>
-                    <p className="font-medium flex items-center gap-1">
-                      <Building2 className="h-3 w-3" />
-                      {saida.projeto}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Empresa:</span>
-                    <p className="font-medium">{saida.empresa}</p>
-                  </div>
-                </div>
-                
-                <div className="mt-3 pt-3 border-t border-exit/10">
-                  <span className="text-xs text-muted-foreground">
-                    Destino: {saida.destino}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

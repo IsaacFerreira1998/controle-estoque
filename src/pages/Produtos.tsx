@@ -7,10 +7,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ExcelExportButton } from "@/components/excel/ExcelExportButton";
-import { Plus, Search, Edit, Trash2, Package, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Package, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const produtos = [
+interface Produto {
+  id: number;
+  codigo: string;
+  nome: string;
+  categoria: string;
+  fornecedor: string;
+  localizacao: string;
+  estoque: number;
+  minimo: number;
+  preco: number;
+  descricao?: string;
+}
+
+const STORAGE_KEY = "estoquemax-produtos";
+
+const produtosIniciais: Produto[] = [
   {
     id: 1,
     codigo: "ELE001",
@@ -46,43 +61,122 @@ const produtos = [
   }
 ];
 
+function carregarProdutos(): Produto[] {
+  try {
+    const salvo = localStorage.getItem(STORAGE_KEY);
+    if (salvo) return JSON.parse(salvo);
+  } catch { }
+  return produtosIniciais;
+}
+
+function salvarProdutos(produtos: Produto[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(produtos));
+}
+
 const categorias = ["Eletrônicos", "Ferramentas", "Móveis", "Materiais", "Outros"];
+
+const novoProdutoVazio = {
+  codigo: "",
+  nome: "",
+  categoria: "",
+  fornecedor: "",
+  localizacao: "",
+  estoque: "",
+  minimo: "",
+  preco: "",
+  descricao: ""
+};
 
 export default function Produtos() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [busca, setBusca] = useState("");
+  const [produtos, setProdutos] = useState<Produto[]>(carregarProdutos);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
   const { toast } = useToast();
 
-  const [novoProduto, setNovoProduto] = useState({
-    codigo: "",
-    nome: "",
-    categoria: "",
-    fornecedor: "",
-    localizacao: "",
-    estoque: "",
-    minimo: "",
-    preco: "",
-    descricao: ""
-  });
+  const [novoProduto, setNovoProduto] = useState(novoProdutoVazio);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: "Produto cadastrado!",
-      description: `${novoProduto.nome} foi adicionado com sucesso.`,
-    });
+
+    if (editandoId !== null) {
+      // Editar produto existente
+      const atualizados = produtos.map(p =>
+        p.id === editandoId
+          ? {
+            ...p,
+            codigo: novoProduto.codigo,
+            nome: novoProduto.nome,
+            categoria: novoProduto.categoria,
+            fornecedor: novoProduto.fornecedor,
+            localizacao: novoProduto.localizacao,
+            estoque: Number(novoProduto.estoque),
+            minimo: Number(novoProduto.minimo),
+            preco: Number(novoProduto.preco),
+            descricao: novoProduto.descricao
+          }
+          : p
+      );
+      setProdutos(atualizados);
+      salvarProdutos(atualizados);
+      toast({ title: "Produto atualizado!", description: `${novoProduto.nome} foi atualizado.` });
+      setEditandoId(null);
+    } else {
+      // Novo produto
+      const novo: Produto = {
+        id: Date.now(),
+        codigo: novoProduto.codigo,
+        nome: novoProduto.nome,
+        categoria: novoProduto.categoria,
+        fornecedor: novoProduto.fornecedor,
+        localizacao: novoProduto.localizacao,
+        estoque: Number(novoProduto.estoque),
+        minimo: Number(novoProduto.minimo),
+        preco: Number(novoProduto.preco),
+        descricao: novoProduto.descricao
+      };
+      const atualizados = [...produtos, novo];
+      setProdutos(atualizados);
+      salvarProdutos(atualizados);
+      toast({ title: "Produto cadastrado!", description: `${novo.nome} foi adicionado com sucesso.` });
+    }
+
     setMostrarFormulario(false);
+    setNovoProduto(novoProdutoVazio);
+  };
+
+  const handleEditar = (produto: Produto) => {
     setNovoProduto({
-      codigo: "",
-      nome: "",
-      categoria: "",
-      fornecedor: "",
-      localizacao: "",
-      estoque: "",
-      minimo: "",
-      preco: "",
-      descricao: ""
+      codigo: produto.codigo,
+      nome: produto.nome,
+      categoria: produto.categoria,
+      fornecedor: produto.fornecedor,
+      localizacao: produto.localizacao,
+      estoque: String(produto.estoque),
+      minimo: String(produto.minimo),
+      preco: String(produto.preco),
+      descricao: produto.descricao || ""
     });
+    setEditandoId(produto.id);
+    setMostrarFormulario(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDeletar = (produto: Produto) => {
+    const atualizados = produtos.filter(p => p.id !== produto.id);
+    setProdutos(atualizados);
+    salvarProdutos(atualizados);
+    toast({
+      title: "Produto removido!",
+      description: `${produto.nome} foi removido do cadastro.`,
+      variant: "destructive"
+    });
+  };
+
+  const handleCancelar = () => {
+    setMostrarFormulario(false);
+    setEditandoId(null);
+    setNovoProduto(novoProdutoVazio);
   };
 
   const produtosFiltrados = produtos.filter(produto =>
@@ -103,8 +197,12 @@ export default function Produtos() {
         </div>
         <div className="flex gap-2">
           <ExcelExportButton fileName="Produtos_EstoqueMax" />
-          <Button 
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+          <Button
+            onClick={() => {
+              setEditandoId(null);
+              setNovoProduto(novoProdutoVazio);
+              setMostrarFormulario(!mostrarFormulario);
+            }}
             className="gradient-primary"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -113,13 +211,13 @@ export default function Produtos() {
         </div>
       </div>
 
-      {/* Formulário de Cadastro */}
+      {/* Formulário de Cadastro / Edição */}
       {mostrarFormulario && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
-              Cadastrar Produto
+              {editandoId !== null ? "Editar Produto" : "Cadastrar Produto"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -129,26 +227,29 @@ export default function Produtos() {
                 <Input
                   id="codigo"
                   value={novoProduto.codigo}
-                  onChange={(e) => setNovoProduto({...novoProduto, codigo: e.target.value})}
+                  onChange={(e) => setNovoProduto({ ...novoProduto, codigo: e.target.value })}
                   placeholder="ELE001"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="nome">Nome do Produto</Label>
                 <Input
                   id="nome"
                   value={novoProduto.nome}
-                  onChange={(e) => setNovoProduto({...novoProduto, nome: e.target.value})}
+                  onChange={(e) => setNovoProduto({ ...novoProduto, nome: e.target.value })}
                   placeholder="Monitor LED 24&quot;"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="categoria">Categoria</Label>
-                <Select onValueChange={(value) => setNovoProduto({...novoProduto, categoria: value})}>
+                <Select
+                  value={novoProduto.categoria}
+                  onValueChange={(value) => setNovoProduto({ ...novoProduto, categoria: value })}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma categoria" />
                   </SelectTrigger>
@@ -161,85 +262,86 @@ export default function Produtos() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="fornecedor">Fornecedor</Label>
                 <Input
                   id="fornecedor"
                   value={novoProduto.fornecedor}
-                  onChange={(e) => setNovoProduto({...novoProduto, fornecedor: e.target.value})}
+                  onChange={(e) => setNovoProduto({ ...novoProduto, fornecedor: e.target.value })}
                   placeholder="TechCorp"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="localizacao">Localização</Label>
                 <Input
                   id="localizacao"
                   value={novoProduto.localizacao}
-                  onChange={(e) => setNovoProduto({...novoProduto, localizacao: e.target.value})}
+                  onChange={(e) => setNovoProduto({ ...novoProduto, localizacao: e.target.value })}
                   placeholder="A1-B2"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="preco">Preço</Label>
+                <Label htmlFor="preco">Preço (R$)</Label>
                 <Input
                   id="preco"
                   type="number"
                   step="0.01"
+                  min="0"
                   value={novoProduto.preco}
-                  onChange={(e) => setNovoProduto({...novoProduto, preco: e.target.value})}
+                  onChange={(e) => setNovoProduto({ ...novoProduto, preco: e.target.value })}
                   placeholder="450.00"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="estoque">Estoque Inicial</Label>
+                <Label htmlFor="estoque">Estoque Atual</Label>
                 <Input
                   id="estoque"
                   type="number"
+                  min="0"
                   value={novoProduto.estoque}
-                  onChange={(e) => setNovoProduto({...novoProduto, estoque: e.target.value})}
+                  onChange={(e) => setNovoProduto({ ...novoProduto, estoque: e.target.value })}
                   placeholder="15"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="minimo">Estoque Mínimo</Label>
                 <Input
                   id="minimo"
                   type="number"
+                  min="0"
                   value={novoProduto.minimo}
-                  onChange={(e) => setNovoProduto({...novoProduto, minimo: e.target.value})}
+                  onChange={(e) => setNovoProduto({ ...novoProduto, minimo: e.target.value })}
                   placeholder="10"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2 md:col-span-2 lg:col-span-3">
                 <Label htmlFor="descricao">Descrição</Label>
                 <Textarea
                   id="descricao"
                   value={novoProduto.descricao}
-                  onChange={(e) => setNovoProduto({...novoProduto, descricao: e.target.value})}
+                  onChange={(e) => setNovoProduto({ ...novoProduto, descricao: e.target.value })}
                   placeholder="Descrição detalhada do produto..."
                 />
               </div>
-              
+
               <div className="md:col-span-2 lg:col-span-3 flex gap-2">
                 <Button type="submit" className="gradient-success">
-                  Cadastrar Produto
+                  <Check className="h-4 w-4 mr-2" />
+                  {editandoId !== null ? "Salvar Alterações" : "Cadastrar Produto"}
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setMostrarFormulario(false)}
-                >
+                <Button type="button" variant="outline" onClick={handleCancelar}>
+                  <X className="h-4 w-4 mr-2" />
                   Cancelar
                 </Button>
               </div>
@@ -279,46 +381,67 @@ export default function Produtos() {
                   <th className="text-left p-2">Fornecedor</th>
                   <th className="text-left p-2">Localização</th>
                   <th className="text-left p-2">Estoque</th>
+                  <th className="text-left p-2">Mín.</th>
                   <th className="text-left p-2">Preço</th>
                   <th className="text-left p-2">Status</th>
                   <th className="text-left p-2">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {produtosFiltrados.map((produto) => (
-                  <tr key={produto.id} className="border-b hover:bg-muted/50 transition-smooth">
-                    <td className="p-2 font-mono text-sm">{produto.codigo}</td>
-                    <td className="p-2 font-medium">{produto.nome}</td>
-                    <td className="p-2">
-                      <Badge variant="outline">{produto.categoria}</Badge>
-                    </td>
-                    <td className="p-2">{produto.fornecedor}</td>
-                    <td className="p-2 font-mono text-sm">{produto.localizacao}</td>
-                    <td className="p-2">
-                      <span className={produto.estoque <= produto.minimo ? "text-exit font-semibold" : ""}>
-                        {produto.estoque}
-                      </span>
-                    </td>
-                    <td className="p-2">R$ {produto.preco.toFixed(2)}</td>
-                    <td className="p-2">
-                      {produto.estoque <= produto.minimo ? (
-                        <Badge variant="destructive">Baixo</Badge>
-                      ) : (
-                        <Badge className="bg-entry text-entry-foreground">OK</Badge>
-                      )}
-                    </td>
-                    <td className="p-2">
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {produtosFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="text-center p-8 text-muted-foreground">
+                      Nenhum produto encontrado.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  produtosFiltrados.map((produto) => (
+                    <tr key={produto.id} className="border-b hover:bg-muted/50 transition-smooth">
+                      <td className="p-2 font-mono text-sm">{produto.codigo}</td>
+                      <td className="p-2 font-medium">{produto.nome}</td>
+                      <td className="p-2">
+                        <Badge variant="outline">{produto.categoria}</Badge>
+                      </td>
+                      <td className="p-2">{produto.fornecedor}</td>
+                      <td className="p-2 font-mono text-sm">{produto.localizacao}</td>
+                      <td className="p-2">
+                        <span className={produto.estoque <= produto.minimo ? "text-destructive font-semibold" : ""}>
+                          {produto.estoque}
+                        </span>
+                      </td>
+                      <td className="p-2 text-muted-foreground">{produto.minimo}</td>
+                      <td className="p-2">R$ {produto.preco.toFixed(2)}</td>
+                      <td className="p-2">
+                        {produto.estoque <= produto.minimo ? (
+                          <Badge variant="destructive">Baixo</Badge>
+                        ) : (
+                          <Badge className="bg-entry text-entry-foreground">OK</Badge>
+                        )}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditar(produto)}
+                            title="Editar produto"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeletar(produto)}
+                            title="Excluir produto"
+                            className="hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

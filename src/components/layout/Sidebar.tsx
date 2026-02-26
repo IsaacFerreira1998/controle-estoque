@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { 
-  LayoutDashboard, 
-  Package, 
-  PackagePlus, 
-  PackageMinus, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Package,
+  PackagePlus,
+  PackageMinus,
+  BarChart3,
   Search,
   Settings
 } from "lucide-react";
@@ -27,21 +27,28 @@ export function Sidebar() {
   return (
     <div className="w-64 bg-card border-r border-border flex flex-col shadow-soft">
       <div className="p-6 border-b border-border">
-        <h1 className="text-2xl font-bold text-primary">
-          EstoqueMax
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Sistema de Gestão
-        </p>
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-medium">
+            <Package className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-primary leading-none">
+              EstoqueMax
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Controle de Estoque
+            </p>
+          </div>
+        </div>
       </div>
-      
-      <nav className="flex-1 p-4 space-y-2">
+
+      <nav className="flex-1 p-4 space-y-1">
         {navigation.map((item) => {
           const isActive = location.pathname === item.href;
           return (
             <Link key={item.name} to={item.href}>
-              <Button 
-                variant={isActive ? "default" : "ghost"} 
+              <Button
+                variant={isActive ? "default" : "ghost"}
                 className={cn(
                   "w-full justify-start gap-3 transition-smooth",
                   isActive && "gradient-primary text-primary-foreground shadow-medium"
@@ -54,10 +61,10 @@ export function Sidebar() {
           );
         })}
       </nav>
-      
+
       <div className="p-4 border-t border-border">
         <div className="text-xs text-muted-foreground text-center">
-          © 2024 EstoqueMax v1.0
+          © 2025 EstoqueMax — Controle de Estoque
         </div>
       </div>
     </div>

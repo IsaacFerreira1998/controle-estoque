@@ -5,10 +5,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { PackagePlus, Plus, Calendar, FileText } from "lucide-react";
+import { PackagePlus, Plus, Calendar, FileText, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const entradas = [
+interface Entrada {
+  id: number;
+  data: string;
+  produto: string;
+  codigo: string;
+  quantidade: number;
+  fornecedor: string;
+  notaFiscal: string;
+  responsavel: string;
+  destino: string;
+  observacoes?: string;
+}
+
+const STORAGE_KEY = "estoquemax-entradas";
+
+const entradasIniciais: Entrada[] = [
   {
     id: 1,
     data: "2024-01-15",
@@ -44,6 +59,18 @@ const entradas = [
   }
 ];
 
+function carregarEntradas(): Entrada[] {
+  try {
+    const salvo = localStorage.getItem(STORAGE_KEY);
+    if (salvo) return JSON.parse(salvo);
+  } catch { }
+  return entradasIniciais;
+}
+
+function salvarEntradas(entradas: Entrada[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entradas));
+}
+
 const produtos = [
   { codigo: "ELE001", nome: "Monitor LED 24\"" },
   { codigo: "FER002", nome: "Chave Phillips 6mm" },
@@ -53,37 +80,67 @@ const produtos = [
 const fornecedores = ["TechCorp", "ToolMax", "MobiliaCorp", "Outros"];
 const destinos = ["Estoque Principal", "Almoxarifado", "Depósito", "Obra A", "Obra B"];
 
+const novaEntradaVazia = {
+  data: new Date().toISOString().split('T')[0],
+  produto: "",
+  codigo: "",
+  quantidade: "",
+  fornecedor: "",
+  notaFiscal: "",
+  responsavel: "",
+  destino: "",
+  observacoes: ""
+};
+
 export default function Entradas() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [entradas, setEntradas] = useState<Entrada[]>(carregarEntradas);
   const { toast } = useToast();
 
-  const [novaEntrada, setNovaEntrada] = useState({
-    data: new Date().toISOString().split('T')[0],
-    produto: "",
-    quantidade: "",
-    fornecedor: "",
-    notaFiscal: "",
-    responsavel: "",
-    destino: "",
-    observacoes: ""
-  });
+  const [novaEntrada, setNovaEntrada] = useState(novaEntradaVazia);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const produtoSelecionado = produtos.find(p => p.codigo === novaEntrada.produto);
+
+    const nova: Entrada = {
+      id: Date.now(),
+      data: novaEntrada.data,
+      produto: produtoSelecionado?.nome || novaEntrada.produto,
+      codigo: novaEntrada.produto,
+      quantidade: Number(novaEntrada.quantidade),
+      fornecedor: novaEntrada.fornecedor,
+      notaFiscal: novaEntrada.notaFiscal,
+      responsavel: novaEntrada.responsavel,
+      destino: novaEntrada.destino,
+      observacoes: novaEntrada.observacoes
+    };
+
+    const atualizadas = [nova, ...entradas];
+    setEntradas(atualizadas);
+    salvarEntradas(atualizadas);
+
     toast({
       title: "Entrada registrada!",
-      description: `Entrada de ${novaEntrada.quantidade} unidades registrada com sucesso.`,
+      description: `Entrada de ${nova.quantidade} unidades de ${nova.produto} registrada com sucesso.`,
     });
+
     setMostrarFormulario(false);
     setNovaEntrada({
-      data: new Date().toISOString().split('T')[0],
-      produto: "",
-      quantidade: "",
-      fornecedor: "",
-      notaFiscal: "",
-      responsavel: "",
-      destino: "",
-      observacoes: ""
+      ...novaEntradaVazia,
+      data: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  const handleDeletar = (entrada: Entrada) => {
+    const atualizadas = entradas.filter(e => e.id !== entrada.id);
+    setEntradas(atualizadas);
+    salvarEntradas(atualizadas);
+    toast({
+      title: "Entrada removida!",
+      description: `Registro de entrada de ${entrada.produto} foi excluído.`,
+      variant: "destructive"
     });
   };
 
@@ -100,7 +157,7 @@ export default function Entradas() {
             Registre novas entradas de produtos no estoque
           </p>
         </div>
-        <Button 
+        <Button
           onClick={() => setMostrarFormulario(!mostrarFormulario)}
           className="gradient-success"
         >
@@ -126,14 +183,14 @@ export default function Entradas() {
                   id="data"
                   type="date"
                   value={novaEntrada.data}
-                  onChange={(e) => setNovaEntrada({...novaEntrada, data: e.target.value})}
+                  onChange={(e) => setNovaEntrada({ ...novaEntrada, data: e.target.value })}
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="produto">Produto</Label>
-                <Select onValueChange={(value) => setNovaEntrada({...novaEntrada, produto: value})}>
+                <Select onValueChange={(value) => setNovaEntrada({ ...novaEntrada, produto: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o produto" />
                   </SelectTrigger>
@@ -146,22 +203,23 @@ export default function Entradas() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="quantidade">Quantidade</Label>
                 <Input
                   id="quantidade"
                   type="number"
+                  min="1"
                   value={novaEntrada.quantidade}
-                  onChange={(e) => setNovaEntrada({...novaEntrada, quantidade: e.target.value})}
+                  onChange={(e) => setNovaEntrada({ ...novaEntrada, quantidade: e.target.value })}
                   placeholder="10"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="fornecedor">Fornecedor</Label>
-                <Select onValueChange={(value) => setNovaEntrada({...novaEntrada, fornecedor: value})}>
+                <Select onValueChange={(value) => setNovaEntrada({ ...novaEntrada, fornecedor: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o fornecedor" />
                   </SelectTrigger>
@@ -174,32 +232,32 @@ export default function Entradas() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="notaFiscal">Nota Fiscal</Label>
                 <Input
                   id="notaFiscal"
                   value={novaEntrada.notaFiscal}
-                  onChange={(e) => setNovaEntrada({...novaEntrada, notaFiscal: e.target.value})}
+                  onChange={(e) => setNovaEntrada({ ...novaEntrada, notaFiscal: e.target.value })}
                   placeholder="NF-12345"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="responsavel">Responsável</Label>
                 <Input
                   id="responsavel"
                   value={novaEntrada.responsavel}
-                  onChange={(e) => setNovaEntrada({...novaEntrada, responsavel: e.target.value})}
+                  onChange={(e) => setNovaEntrada({ ...novaEntrada, responsavel: e.target.value })}
                   placeholder="João Silva"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="destino">Destino</Label>
-                <Select onValueChange={(value) => setNovaEntrada({...novaEntrada, destino: value})}>
+                <Select onValueChange={(value) => setNovaEntrada({ ...novaEntrada, destino: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o destino" />
                   </SelectTrigger>
@@ -212,26 +270,27 @@ export default function Entradas() {
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="space-y-2 md:col-span-2 lg:col-span-3">
+
+              <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="observacoes">Observações</Label>
                 <Input
                   id="observacoes"
                   value={novaEntrada.observacoes}
-                  onChange={(e) => setNovaEntrada({...novaEntrada, observacoes: e.target.value})}
+                  onChange={(e) => setNovaEntrada({ ...novaEntrada, observacoes: e.target.value })}
                   placeholder="Observações adicionais..."
                 />
               </div>
-              
+
               <div className="md:col-span-2 lg:col-span-3 flex gap-2">
                 <Button type="submit" className="gradient-success">
                   Registrar Entrada
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setMostrarFormulario(false)}
                 >
+                  <X className="h-4 w-4 mr-2" />
                   Cancelar
                 </Button>
               </div>
@@ -249,54 +308,72 @@ export default function Entradas() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {entradas.map((entrada) => (
-              <div key={entrada.id} className="border border-entry/20 bg-gradient-to-r from-entry/5 to-transparent rounded-lg p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-entry rounded-full"></div>
-                    <div>
-                      <h4 className="font-semibold">{entrada.produto}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Código: {entrada.codigo}
-                      </p>
+          {entradas.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              Nenhuma entrada registrada ainda.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {entradas.map((entrada) => (
+                <div key={entrada.id} className="border border-entry/20 bg-gradient-to-r from-entry/5 to-transparent rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 bg-entry rounded-full"></div>
+                      <div>
+                        <h4 className="font-semibold">{entrada.produto}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Código: {entrada.codigo}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-entry text-entry-foreground">
+                        +{entrada.quantidade} unidades
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeletar(entrada)}
+                        className="hover:text-destructive"
+                        title="Remover registro"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <Badge className="bg-entry text-entry-foreground">
-                    +{entrada.quantidade} unidades
-                  </Badge>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Data:</span>
+                      <p className="font-medium">{new Date(entrada.data + "T00:00:00").toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Fornecedor:</span>
+                      <p className="font-medium">{entrada.fornecedor}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Nota Fiscal:</span>
+                      <p className="font-medium flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        {entrada.notaFiscal}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Destino:</span>
+                      <p className="font-medium">{entrada.destino}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-entry/10">
+                    <span className="text-xs text-muted-foreground">
+                      Responsável: {entrada.responsavel}
+                      {entrada.observacoes && ` — ${entrada.observacoes}`}
+                    </span>
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Data:</span>
-                    <p className="font-medium">{new Date(entrada.data).toLocaleDateString('pt-BR')}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Fornecedor:</span>
-                    <p className="font-medium">{entrada.fornecedor}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Nota Fiscal:</span>
-                    <p className="font-medium flex items-center gap-1">
-                      <FileText className="h-3 w-3" />
-                      {entrada.notaFiscal}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Destino:</span>
-                    <p className="font-medium">{entrada.destino}</p>
-                  </div>
-                </div>
-                
-                <div className="mt-3 pt-3 border-t border-entry/10">
-                  <span className="text-xs text-muted-foreground">
-                    Responsável: {entrada.responsavel}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

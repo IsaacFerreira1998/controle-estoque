@@ -1,73 +1,169 @@
-# Welcome to your Lovable project
+<h1 align="center">
+  📦 EstoqueMax
+</h1>
 
-## Project info
+<p align="center">
+  Sistema de controle de estoque completo, rápido e 100% offline — desenvolvido com React + TypeScript.
+</p>
 
-**URL**: https://lovable.dev/projects/5a90dd1a-2352-4389-9787-5b9d14457d24
+<p align="center">
+  <img alt="React" src="https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white&style=flat-square"/>
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white&style=flat-square"/>
+  <img alt="Vite" src="https://img.shields.io/badge/Vite-5-646cff?logo=vite&logoColor=white&style=flat-square"/>
+  <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss&logoColor=white&style=flat-square"/>
+  <img alt="License" src="https://img.shields.io/badge/Licença-MIT-22c55e?style=flat-square"/>
+</p>
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 📋 Sobre o Projeto
 
-**Use Lovable**
+O **EstoqueMax** é um sistema de gestão de estoque desenvolvido para rodar diretamente no navegador, sem necessidade de servidor, banco de dados ou internet. Todos os dados são armazenados localmente via **localStorage**, tornando-o ideal para uso offline em qualquer máquina Windows.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/5a90dd1a-2352-4389-9787-5b9d14457d24) and start prompting.
+### O que ele resolve
 
-Changes made via Lovable will be committed automatically to this repo.
+- Controle de entrada e saída de produtos com histórico completo
+- Alertas automáticos quando o estoque atinge o nível mínimo
+- Exportação real de dados para **Excel (.xlsx)** e **Power BI (.csv)**
+- Dashboard com gráficos e análises em tempo real
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## ✨ Funcionalidades
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+| Módulo | Descrição |
+|---|---|
+| 📊 **Dashboard** | Visão geral com KPIs, gráficos de movimentação e alertas de estoque crítico |
+| 📦 **Produtos** | Cadastro com código, categoria, fornecedor, localização, preço e estoque mínimo |
+| ⬆️ **Entradas** | Registro com nota fiscal, responsável, destino — dados persistidos automaticamente |
+| ⬇️ **Saídas** | Controle por projeto/empresa com validação de estoque disponível |
+| 🔍 **Consultas** | Pesquisa avançada por produto, período, categoria, fornecedor e responsável |
+| 📈 **Relatórios** | Gráficos reais + exportação para Excel BI (5 abas) e CSV para Power BI |
+| ⚙️ **Configurações** | Dados da empresa, alertas de estoque, backup e preferências |
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🛠️ Tecnologias
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **[React 18](https://react.dev/)** + **[TypeScript](https://www.typescriptlang.org/)** — base da aplicação
+- **[Vite 5](https://vitejs.dev/)** — build e servidor de desenvolvimento
+- **[Tailwind CSS](https://tailwindcss.com/)** — estilização
+- **[shadcn/ui](https://ui.shadcn.com/)** + **[Radix UI](https://www.radix-ui.com/)** — componentes acessíveis
+- **[Recharts](https://recharts.org/)** — gráficos e visualizações
+- **[xlsx](https://sheetjs.com/)** — exportação para Excel
+- **[React Router DOM](https://reactrouter.com/)** — roteamento
+- **localStorage** — persistência de dados sem banco de dados
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+## 🚀 Como Executar
+
+### Pré-requisito
+
+Ter o **[Node.js](https://nodejs.org/)** instalado (versão 18 ou superior).
+
+### Instalação
+
+```bash
+# Clone o repositório
+git clone https://github.com/seu-usuario/controle-total-estoque.git
+
+# Entre na pasta do projeto
+cd controle-total-estoque
+
+# Instale as dependências
+npm install
+
+# Inicie o servidor de desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Acesse: **http://localhost:8080**
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Windows — Executar via arquivo BAT
 
-**Use GitHub Codespaces**
+Se preferir um atalho simples, dentro da pasta do projeto execute:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```
+executar.bat
+```
 
-## What technologies are used for this project?
+Ou acesse **Configurações** dentro do sistema e clique em **"Gerar Arquivo BAT"**.
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📁 Estrutura do Projeto
 
-## How can I deploy this project?
+```
+controle-total-estoque/
+├── public/
+└── src/
+    ├── components/
+    │   ├── dashboard/       # StatsCard e gráficos avançados
+    │   ├── excel/           # Botão de exportação com menu
+    │   ├── consultas/       # Filtros e resultados de consulta
+    │   ├── layout/          # Sidebar, Header e Layout principal
+    │   └── ui/              # Componentes base (shadcn/ui)
+    ├── hooks/               # Hooks customizados
+    ├── lib/                 # Utilitários (cn, etc)
+    ├── pages/
+    │   ├── Dashboard.tsx    # Visão geral e gráficos
+    │   ├── Produtos.tsx     # CRUD completo de produtos
+    │   ├── Entradas.tsx     # Registro de entradas
+    │   ├── Saidas.tsx       # Registro de saídas
+    │   ├── Consultas.tsx    # Consultas avançadas
+    │   ├── Relatorios.tsx   # Relatórios e exportação
+    │   └── Configuracoes.tsx
+    └── utils/
+        └── excelExport.ts   # Lógica de exportação Excel/CSV
+```
 
-Simply open [Lovable](https://lovable.dev/projects/5a90dd1a-2352-4389-9787-5b9d14457d24) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## 💾 Persistência de Dados
 
-Yes, you can!
+Os dados são armazenados automaticamente no **localStorage** do navegador com as seguintes chaves:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+| Chave | Conteúdo |
+|---|---|
+| `estoquemax-produtos` | Cadastro de produtos |
+| `estoquemax-entradas` | Histórico de entradas |
+| `estoquemax-saidas` | Histórico de saídas |
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+> Para resetar todos os dados: **Configurações → Restaurar Padrões**, ou apague as chaves no DevTools (`F12 → Application → Local Storage`).
+
+---
+
+## 📤 Exportação
+
+### Excel (.xlsx)
+- **Excel BI Completo** — 5 abas: Dashboard, Produtos, Entradas, Saídas e Análises
+- Exportação individual por tipo de dado
+- Filtros automáticos e largura de colunas otimizada
+
+### Power BI (.csv)
+- Arquivo CSV com **BOM UTF-8** para compatibilidade total com o Power BI Desktop
+- Headers sem acentos e sem espaços (padrão para DAX)
+- Produtos e Movimentações em arquivos separados
+
+---
+
+## 🔧 Build para Produção
+
+```bash
+npm run build
+```
+
+Os arquivos otimizados serão gerados na pasta `dist/`.
+
+---
+
+## 📄 Licença
+
+Este projeto está sob a licença **MIT**. Sinta-se livre para usar, modificar e distribuir.
+
+---
+
+<p align="center">
+  Desenvolvido por <strong>Isaac</strong> · 2025
+</p>

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 
-// Tipos para os dados
+// ─── Tipos ───────────────────────────────────────────────────────────────────
+
 export interface ProdutoExcel {
   codigo: string;
   nome: string;
@@ -19,13 +20,17 @@ export interface MovimentacaoExcel {
   data: string;
   tipo: string;
   produto: string;
+  codigo?: string;
   quantidade: number;
   responsavel: string;
-  projeto: string;
-  empresa: string;
-  observacoes: string;
-  valorUnitario: number;
-  valorTotal: number;
+  projeto?: string;
+  empresa?: string;
+  fornecedor?: string;
+  notaFiscal?: string;
+  destino?: string;
+  observacoes?: string;
+  valorUnitario?: number;
+  valorTotal?: number;
 }
 
 export interface DashboardExcel {
@@ -33,200 +38,356 @@ export interface DashboardExcel {
   valorTotalEstoque: number;
   produtos: ProdutoExcel[];
   movimentacoes: MovimentacaoExcel[];
-  estatisticas: {
-    categoria: string;
-    quantidade: number;
-    valor: number;
-  }[];
+  estatisticas: { categoria: string; quantidade: number; valor: number }[];
 }
 
-// Função para criar planilha com visual BI
+// ─── Leitura de dados reais do localStorage ───────────────────────────────────
+
+export function lerProdutosDoStorage(): ProdutoExcel[] {
+  try {
+    const raw = localStorage.getItem('estoquemax-produtos');
+    if (!raw) return [];
+    const produtos = JSON.parse(raw);
+    return produtos.map((p: any) => ({
+      codigo: p.codigo ?? '',
+      nome: p.nome ?? '',
+      categoria: p.categoria ?? '',
+      fornecedor: p.fornecedor ?? '',
+      localizacao: p.localizacao ?? '',
+      estoque: Number(p.estoque ?? 0),
+      estoqueMinimo: Number(p.minimo ?? 0),
+      valorUnitario: Number(p.preco ?? 0),
+      valorTotal: Number(p.estoque ?? 0) * Number(p.preco ?? 0),
+      status: Number(p.estoque) <= Number(p.minimo) ? 'CRÍTICO' : 'OK',
+      ultimaAtualizacao: new Date().toLocaleDateString('pt-BR'),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function lerEntradasDoStorage(): MovimentacaoExcel[] {
+  try {
+    const raw = localStorage.getItem('estoquemax-entradas');
+    if (!raw) return [];
+    const entradas = JSON.parse(raw);
+    return entradas.map((e: any) => ({
+      data: e.data ?? '',
+      tipo: 'Entrada',
+      produto: e.produto ?? '',
+      codigo: e.codigo ?? '',
+      quantidade: Number(e.quantidade ?? 0),
+      responsavel: e.responsavel ?? '',
+      fornecedor: e.fornecedor ?? '',
+      notaFiscal: e.notaFiscal ?? '',
+      destino: e.destino ?? '',
+      observacoes: e.observacoes ?? '',
+      valorUnitario: 0,
+      valorTotal: 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function lerSaidasDoStorage(): MovimentacaoExcel[] {
+  try {
+    const raw = localStorage.getItem('estoquemax-saidas');
+    if (!raw) return [];
+    const saidas = JSON.parse(raw);
+    return saidas.map((s: any) => ({
+      data: `${s.data ?? ''} ${s.hora ?? ''}`.trim(),
+      tipo: 'Saída',
+      produto: s.produto ?? '',
+      codigo: s.codigo ?? '',
+      quantidade: Number(s.quantidade ?? 0),
+      responsavel: s.responsavel ?? '',
+      projeto: s.projeto ?? '',
+      empresa: s.empresa ?? '',
+      destino: s.destino ?? '',
+      observacoes: s.observacoes ?? '',
+      valorUnitario: 0,
+      valorTotal: 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function montarDashboardExcel(): DashboardExcel {
+  const produtos = lerProdutosDoStorage();
+  const entradas = lerEntradasDoStorage();
+  const saidas = lerSaidasDoStorage();
+  const movimentacoes = [...entradas, ...saidas].sort((a, b) =>
+    b.data.localeCompare(a.data)
+  );
+
+  const valorTotal = produtos.reduce((acc, p) => acc + p.valorTotal, 0);
+
+  // Agrupar por categoria
+  const porCategoria = produtos.reduce((acc, p) => {
+    if (!acc[p.categoria]) acc[p.categoria] = { quantidade: 0, valor: 0 };
+    acc[p.categoria].quantidade += p.estoque;
+    acc[p.categoria].valor += p.valorTotal;
+    return acc;
+  }, {} as Record<string, { quantidade: number; valor: number }>);
+
+  const estatisticas = Object.entries(porCategoria).map(([categoria, dados]) => ({
+    categoria,
+    quantidade: dados.quantidade,
+    valor: dados.valor,
+  }));
+
+  return {
+    totalProdutos: produtos.length,
+    valorTotalEstoque: valorTotal,
+    produtos,
+    movimentacoes,
+    estatisticas,
+  };
+}
+
+// ─── Exportação Excel BI completo ─────────────────────────────────────────────
+
 export const exportToExcelBI = (data: DashboardExcel, nomeArquivo: string = 'EstoqueMax_BI') => {
   const wb = XLSX.utils.book_new();
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const hojeISO = new Date().toISOString().split('T')[0];
 
-  // 1. ABA DASHBOARD - Visual BI
+  // 1. DASHBOARD
   const dashboardData = [
-    ['ESTOQUEMAX - BUSINESS INTELLIGENCE', '', '', '', '', '', ''],
-    ['', '', '', '', '', '', ''],
-    ['RESUMO EXECUTIVO', '', '', '', '', '', ''],
-    ['Total de Produtos:', data.totalProdutos, '', '', 'Valor Total do Estoque:', `R$ ${data.valorTotalEstoque.toFixed(2)}`, ''],
-    ['Data do Relatório:', new Date().toLocaleDateString('pt-BR'), '', '', 'Última Atualização:', new Date().toLocaleString('pt-BR'), ''],
-    ['', '', '', '', '', '', ''],
-    ['ANÁLISE POR CATEGORIA', '', '', '', '', '', ''],
-    ['Categoria', 'Qtd Produtos', 'Valor Total', '% do Estoque', 'Status', 'Observações', ''],
-    ...data.estatisticas.map(stat => [
-      stat.categoria,
-      stat.quantidade,
-      `R$ ${stat.valor.toFixed(2)}`,
-      `${((stat.valor / data.valorTotalEstoque) * 100).toFixed(1)}%`,
-      stat.quantidade > 0 ? 'ATIVO' : 'INATIVO',
-      stat.quantidade < 5 ? 'ATENÇÃO: Poucos itens' : 'Normal'
-    ])
+    ['ESTOQUEMAX — SISTEMA DE CONTROLE DE ESTOQUE', '', '', '', '', ''],
+    ['Relatório gerado em: ' + hoje, '', '', '', '', ''],
+    ['', '', '', '', '', ''],
+    ['RESUMO EXECUTIVO', '', '', '', '', ''],
+    ['Total de Produtos Cadastrados', data.totalProdutos, '', '', '', ''],
+    ['Valor Total do Estoque', `R$ ${data.valorTotalEstoque.toFixed(2)}`, '', '', '', ''],
+    ['Total de Movimentações', data.movimentacoes.length, '', '', '', ''],
+    ['Produtos em Situação Crítica', data.produtos.filter(p => p.status === 'CRÍTICO').length, '', '', '', ''],
+    ['', '', '', '', '', ''],
+    ['DISTRIBUIÇÃO POR CATEGORIA', '', '', '', '', ''],
+    ['Categoria', 'Qtd em Estoque', 'Valor Total (R$)', '% do Estoque Total', '', ''],
+    ...data.estatisticas.map(s => [
+      s.categoria,
+      s.quantidade,
+      s.valor.toFixed(2),
+      data.valorTotalEstoque > 0
+        ? `${((s.valor / data.valorTotalEstoque) * 100).toFixed(1)}%`
+        : '0%',
+      '',
+      '',
+    ]),
   ];
-
-  const wsDashboard = XLSX.utils.aoa_to_sheet(dashboardData);
-  
-  // Styling para dashboard
-  wsDashboard['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, // Título principal
-    { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } }, // Resumo executivo
-    { s: { r: 6, c: 0 }, e: { r: 6, c: 6 } }  // Análise por categoria
+  const wsDash = XLSX.utils.aoa_to_sheet(dashboardData);
+  wsDash['!cols'] = [{ width: 35 }, { width: 20 }, { width: 20 }, { width: 20 }, { width: 15 }, { width: 15 }];
+  wsDash['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+    { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } },
+    { s: { r: 9, c: 0 }, e: { r: 9, c: 5 } },
   ];
+  XLSX.utils.book_append_sheet(wb, wsDash, 'Dashboard');
 
-  wsDashboard['!cols'] = [
-    { width: 20 }, { width: 15 }, { width: 15 }, { width: 12 }, { width: 12 }, { width: 20 }, { width: 15 }
-  ];
-
-  XLSX.utils.book_append_sheet(wb, wsDashboard, '📊 Dashboard');
-
-  // 2. ABA PRODUTOS DETALHADA
+  // 2. PRODUTOS
   const produtosHeader = [
     'Código', 'Nome do Produto', 'Categoria', 'Fornecedor', 'Localização',
-    'Estoque Atual', 'Estoque Mínimo', 'Status Estoque', 'Valor Unitário',
-    'Valor Total', 'Última Atualização', 'Observações'
+    'Estoque Atual', 'Estoque Mínimo', 'Status', 'Valor Unitário (R$)', 'Valor Total (R$)', 'Observação',
   ];
+  const produtosRows = data.produtos.map(p => [
+    p.codigo, p.nome, p.categoria, p.fornecedor, p.localizacao,
+    p.estoque, p.estoqueMinimo, p.status,
+    p.valorUnitario.toFixed(2), p.valorTotal.toFixed(2),
+    p.estoque <= p.estoqueMinimo ? 'REPOSIÇÃO NECESSÁRIA' : '',
+  ]);
+  const wsProdutos = XLSX.utils.aoa_to_sheet([produtosHeader, ...produtosRows]);
+  wsProdutos['!cols'] = Array(11).fill({ width: 18 });
+  wsProdutos['!autofilter'] = { ref: `A1:K${produtosRows.length + 1}` };
+  XLSX.utils.book_append_sheet(wb, wsProdutos, 'Produtos');
 
-  const produtosData = [
-    produtosHeader,
-    ...data.produtos.map(produto => [
-      produto.codigo,
-      produto.nome,
-      produto.categoria,
-      produto.fornecedor,
-      produto.localizacao,
-      produto.estoque,
-      produto.estoqueMinimo,
-      produto.estoque <= produto.estoqueMinimo ? 'CRÍTICO' : produto.estoque <= produto.estoqueMinimo * 1.5 ? 'BAIXO' : 'OK',
-      `R$ ${produto.valorUnitario.toFixed(2)}`,
-      `R$ ${produto.valorTotal.toFixed(2)}`,
-      produto.ultimaAtualizacao,
-      produto.estoque <= produto.estoqueMinimo ? 'REPOSIÇÃO NECESSÁRIA' : ''
-    ])
-  ];
+  // 3. ENTRADAS
+  const entradasData = lerEntradasDoStorage();
+  const entradasHeader = ['Data', 'Produto', 'Código', 'Quantidade', 'Fornecedor', 'Nota Fiscal', 'Responsável', 'Destino', 'Observações'];
+  const entradasRows = entradasData.map(e => [
+    e.data, e.produto, e.codigo ?? '', e.quantidade,
+    e.fornecedor ?? '', e.notaFiscal ?? '', e.responsavel, e.destino ?? '', e.observacoes ?? '',
+  ]);
+  const wsEntradas = XLSX.utils.aoa_to_sheet([entradasHeader, ...entradasRows]);
+  wsEntradas['!cols'] = Array(9).fill({ width: 18 });
+  wsEntradas['!autofilter'] = { ref: `A1:I${entradasRows.length + 1}` };
+  XLSX.utils.book_append_sheet(wb, wsEntradas, 'Entradas');
 
-  const wsProdutos = XLSX.utils.aoa_to_sheet(produtosData);
-  wsProdutos['!cols'] = Array(12).fill({ width: 15 });
-  
-  // Aplicar filtros automáticos
-  wsProdutos['!autofilter'] = { ref: `A1:L${produtosData.length}` };
-  
-  XLSX.utils.book_append_sheet(wb, wsProdutos, '📦 Produtos');
+  // 4. SAÍDAS
+  const saidasData = lerSaidasDoStorage();
+  const saidasHeader = ['Data/Hora', 'Produto', 'Código', 'Quantidade', 'Responsável', 'Projeto', 'Empresa', 'Destino', 'Observações'];
+  const saidasRows = saidasData.map(s => [
+    s.data, s.produto, s.codigo ?? '', s.quantidade,
+    s.responsavel, s.projeto ?? '', s.empresa ?? '', s.destino ?? '', s.observacoes ?? '',
+  ]);
+  const wsSaidas = XLSX.utils.aoa_to_sheet([saidasHeader, ...saidasRows]);
+  wsSaidas['!cols'] = Array(9).fill({ width: 18 });
+  wsSaidas['!autofilter'] = { ref: `A1:I${saidasRows.length + 1}` };
+  XLSX.utils.book_append_sheet(wb, wsSaidas, 'Saídas');
 
-  // 3. ABA MOVIMENTAÇÕES
-  const movimentacoesHeader = [
-    'Data', 'Tipo', 'Produto', 'Quantidade', 'Responsável',
-    'Projeto', 'Empresa', 'Valor Unitário', 'Valor Total', 'Observações'
-  ];
-
-  const movimentacoesData = [
-    movimentacoesHeader,
-    ...data.movimentacoes.map(mov => [
-      mov.data,
-      mov.tipo,
-      mov.produto,
-      mov.quantidade,
-      mov.responsavel,
-      mov.projeto,
-      mov.empresa,
-      `R$ ${mov.valorUnitario.toFixed(2)}`,
-      `R$ ${mov.valorTotal.toFixed(2)}`,
-      mov.observacoes
-    ])
-  ];
-
-  const wsMovimentacoes = XLSX.utils.aoa_to_sheet(movimentacoesData);
-  wsMovimentacoes['!cols'] = Array(10).fill({ width: 15 });
-  wsMovimentacoes['!autofilter'] = { ref: `A1:J${movimentacoesData.length}` };
-  
-  XLSX.utils.book_append_sheet(wb, wsMovimentacoes, '🔄 Movimentações');
-
-  // 4. ABA ANÁLISES AVANÇADAS
+  // 5. ANÁLISES
+  const criticos = data.produtos.filter(p => p.estoque <= p.estoqueMinimo);
+  const topValor = [...data.produtos].sort((a, b) => b.valorTotal - a.valorTotal).slice(0, 10);
   const analiseData = [
-    ['ANÁLISES AVANÇADAS - ESTOQUEMAX', '', '', '', ''],
-    ['', '', '', '', ''],
-    ['TOP 10 PRODUTOS POR VALOR', '', '', '', ''],
-    ['Posição', 'Produto', 'Categoria', 'Valor Total', 'Participação %'],
-    ...data.produtos
-      .sort((a, b) => b.valorTotal - a.valorTotal)
-      .slice(0, 10)
-      .map((produto, index) => [
-        `${index + 1}º`,
-        produto.nome,
-        produto.categoria,
-        `R$ ${produto.valorTotal.toFixed(2)}`,
-        `${((produto.valorTotal / data.valorTotalEstoque) * 100).toFixed(2)}%`
-      ]),
-    ['', '', '', '', ''],
-    ['PRODUTOS EM SITUAÇÃO CRÍTICA', '', '', '', ''],
-    ['Produto', 'Estoque Atual', 'Estoque Mínimo', 'Diferença', 'Ação Necessária'],
-    ...data.produtos
-      .filter(produto => produto.estoque <= produto.estoqueMinimo)
-      .map(produto => [
-        produto.nome,
-        produto.estoque,
-        produto.estoqueMinimo,
-        produto.estoque - produto.estoqueMinimo,
-        'REPOSIÇÃO URGENTE'
-      ])
-  ];
-
-  const wsAnalise = XLSX.utils.aoa_to_sheet(analiseData);
-  wsAnalise['!cols'] = Array(5).fill({ width: 20 });
-  wsAnalise['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-    { s: { r: 2, c: 0 }, e: { r: 2, c: 4 } }
-  ];
-  
-  XLSX.utils.book_append_sheet(wb, wsAnalise, '📈 Análises');
-
-  // 5. ABA GRÁFICOS (dados para gráficos)
-  const graficosData = [
-    ['DADOS PARA GRÁFICOS', '', '', ''],
-    ['', '', '', ''],
-    ['ESTOQUE POR CATEGORIA', '', '', ''],
-    ['Categoria', 'Quantidade', 'Valor', 'Percentual'],
-    ...data.estatisticas.map(stat => [
-      stat.categoria,
-      stat.quantidade,
-      stat.valor,
-      `${((stat.valor / data.valorTotalEstoque) * 100).toFixed(1)}%`
+    ['ANÁLISES ESTOQUEMAX', '', '', '', ''],
+    [''],
+    ['TOP PRODUTOS POR VALOR EM ESTOQUE', '', '', '', ''],
+    ['#', 'Produto', 'Categoria', 'Valor Total (R$)', 'Participação %'],
+    ...topValor.map((p, i) => [
+      `${i + 1}º`, p.nome, p.categoria, p.valorTotal.toFixed(2),
+      data.valorTotalEstoque > 0 ? `${((p.valorTotal / data.valorTotalEstoque) * 100).toFixed(2)}%` : '0%',
     ]),
-    ['', '', '', ''],
-    ['MOVIMENTAÇÕES POR MÊS', '', '', ''],
-    ['Mês', 'Entradas', 'Saídas', 'Saldo'],
-    // Aqui você pode adicionar dados de movimentações por mês
-  ];
+    [''],
+    ['PRODUTOS COM REPOSIÇÃO NECESSÁRIA', '', '', '', ''],
+    ['Produto', 'Estoque Atual', 'Estoque Mínimo', 'Faltam', 'Ação'],
+    ...criticos.map(p => [p.nome, p.estoque, p.estoqueMinimo, p.estoqueMinimo - p.estoque, 'COMPRAR URGENTE']),
+    criticos.length === 0 ? ['Nenhum produto crítico', '', '', '', ''] : [],
+  ].filter(r => r.length > 0);
+  const wsAnalise = XLSX.utils.aoa_to_sheet(analiseData);
+  wsAnalise['!cols'] = Array(5).fill({ width: 25 });
+  XLSX.utils.book_append_sheet(wb, wsAnalise, 'Analises');
 
-  const wsGraficos = XLSX.utils.aoa_to_sheet(graficosData);
-  wsGraficos['!cols'] = Array(4).fill({ width: 15 });
-  
-  XLSX.utils.book_append_sheet(wb, wsGraficos, '📊 Dados Gráficos');
-
-  // Salvar arquivo
-  const fileName = `${nomeArquivo}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  const fileName = `${nomeArquivo}_${hojeISO}.xlsx`;
   XLSX.writeFile(wb, fileName);
-  
   return fileName;
 };
 
-// Função para exportar produtos simples
-export const exportProdutosToExcel = (produtos: ProdutoExcel[]) => {
-  const ws = XLSX.utils.json_to_sheet(produtos);
+// ─── Exportação individual por tipo ──────────────────────────────────────────
+
+export const exportarProdutosExcel = (nomeArquivo = 'Produtos_EstoqueMax') => {
+  const produtos = lerProdutosDoStorage();
+  const header = ['Código', 'Nome', 'Categoria', 'Fornecedor', 'Localização', 'Estoque', 'Estoque Mínimo', 'Status', 'Valor Unitário (R$)', 'Valor Total (R$)'];
+  const rows = produtos.map(p => [p.codigo, p.nome, p.categoria, p.fornecedor, p.localizacao, p.estoque, p.estoqueMinimo, p.status, p.valorUnitario.toFixed(2), p.valorTotal.toFixed(2)]);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = Array(10).fill({ width: 18 });
+  ws['!autofilter'] = { ref: `A1:J${rows.length + 1}` };
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
-  
-  const fileName = `Produtos_${new Date().toISOString().split('T')[0]}.xlsx`;
+  const fileName = `${nomeArquivo}_${new Date().toISOString().split('T')[0]}.xlsx`;
   XLSX.writeFile(wb, fileName);
   return fileName;
 };
 
-// Função para exportar movimentações simples
-export const exportMovimentacoesToExcel = (movimentacoes: MovimentacaoExcel[]) => {
-  const ws = XLSX.utils.json_to_sheet(movimentacoes);
+export const exportarEntradasExcel = (nomeArquivo = 'Entradas_EstoqueMax') => {
+  const entradas = lerEntradasDoStorage();
+  const header = ['Data', 'Produto', 'Código', 'Quantidade', 'Fornecedor', 'NF', 'Responsável', 'Destino', 'Obs'];
+  const rows = entradas.map(e => [e.data, e.produto, e.codigo ?? '', e.quantidade, e.fornecedor ?? '', e.notaFiscal ?? '', e.responsavel, e.destino ?? '', e.observacoes ?? '']);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = Array(9).fill({ width: 18 });
+  ws['!autofilter'] = { ref: `A1:I${rows.length + 1}` };
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Movimentações');
-  
-  const fileName = `Movimentacoes_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.utils.book_append_sheet(wb, ws, 'Entradas');
+  const fileName = `${nomeArquivo}_${new Date().toISOString().split('T')[0]}.xlsx`;
   XLSX.writeFile(wb, fileName);
   return fileName;
 };
+
+export const exportarSaidasExcel = (nomeArquivo = 'Saidas_EstoqueMax') => {
+  const saidas = lerSaidasDoStorage();
+  const header = ['Data/Hora', 'Produto', 'Código', 'Quantidade', 'Responsável', 'Projeto', 'Empresa', 'Destino', 'Obs'];
+  const rows = saidas.map(s => [s.data, s.produto, s.codigo ?? '', s.quantidade, s.responsavel, s.projeto ?? '', s.empresa ?? '', s.destino ?? '', s.observacoes ?? '']);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = Array(9).fill({ width: 18 });
+  ws['!autofilter'] = { ref: `A1:I${rows.length + 1}` };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Saídas');
+  const fileName = `${nomeArquivo}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  return fileName;
+};
+
+export const exportarMovimentacoesExcel = (nomeArquivo = 'Movimentacoes_EstoqueMax') => {
+  const entradas = lerEntradasDoStorage();
+  const saidas = lerSaidasDoStorage();
+  const tudo = [...entradas, ...saidas].sort((a, b) => b.data.localeCompare(a.data));
+  const header = ['Data', 'Tipo', 'Produto', 'Código', 'Quantidade', 'Responsável', 'Fornecedor/Projeto', 'Empresa', 'Destino', 'Observações'];
+  const rows = tudo.map(m => [
+    m.data, m.tipo, m.produto, m.codigo ?? '', m.quantidade, m.responsavel,
+    m.fornecedor ?? m.projeto ?? '', m.empresa ?? '', m.destino ?? '', m.observacoes ?? '',
+  ]);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = Array(10).fill({ width: 18 });
+  ws['!autofilter'] = { ref: `A1:J${rows.length + 1}` };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Movimentações');
+  const fileName = `${nomeArquivo}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  return fileName;
+};
+
+// ─── Exportação Power BI (CSV) ────────────────────────────────────────────────
+
+function gerarCSV(header: string[], rows: (string | number)[][]): string {
+  const escapar = (val: string | number) => {
+    const s = String(val ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+  const linhas = [header, ...rows].map(r => r.map(escapar).join(','));
+  return '\uFEFF' + linhas.join('\r\n'); // BOM UTF-8 para Excel/Power BI ler corretamente
+}
+
+function baixarCSV(conteudo: string, nomeArquivo: string) {
+  const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export const exportarPowerBIProdutos = () => {
+  const produtos = lerProdutosDoStorage();
+  const header = ['Codigo', 'Nome', 'Categoria', 'Fornecedor', 'Localizacao', 'Estoque', 'EstoqueMinimo', 'Status', 'ValorUnitario', 'ValorTotal', 'DataExportacao'];
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const rows = produtos.map(p => [p.codigo, p.nome, p.categoria, p.fornecedor, p.localizacao, p.estoque, p.estoqueMinimo, p.status, p.valorUnitario, p.valorTotal, hoje]);
+  const csv = gerarCSV(header, rows);
+  baixarCSV(csv, `PowerBI_Produtos_${new Date().toISOString().split('T')[0]}.csv`);
+  return rows.length;
+};
+
+export const exportarPowerBIEntradas = () => {
+  const entradas = lerEntradasDoStorage();
+  const header = ['Data', 'Produto', 'Codigo', 'Quantidade', 'Fornecedor', 'NotaFiscal', 'Responsavel', 'Destino', 'Observacoes', 'Tipo'];
+  const rows = entradas.map(e => [e.data, e.produto, e.codigo ?? '', e.quantidade, e.fornecedor ?? '', e.notaFiscal ?? '', e.responsavel, e.destino ?? '', e.observacoes ?? '', 'Entrada']);
+  const csv = gerarCSV(header, rows);
+  baixarCSV(csv, `PowerBI_Entradas_${new Date().toISOString().split('T')[0]}.csv`);
+  return rows.length;
+};
+
+export const exportarPowerBISaidas = () => {
+  const saidas = lerSaidasDoStorage();
+  const header = ['DataHora', 'Produto', 'Codigo', 'Quantidade', 'Responsavel', 'Projeto', 'Empresa', 'Destino', 'Observacoes', 'Tipo'];
+  const rows = saidas.map(s => [s.data, s.produto, s.codigo ?? '', s.quantidade, s.responsavel, s.projeto ?? '', s.empresa ?? '', s.destino ?? '', s.observacoes ?? '', 'Saida']);
+  const csv = gerarCSV(header, rows);
+  baixarCSV(csv, `PowerBI_Saidas_${new Date().toISOString().split('T')[0]}.csv`);
+  return rows.length;
+};
+
+export const exportarPowerBICompleto = () => {
+  const entradas = lerEntradasDoStorage();
+  const saidas = lerSaidasDoStorage();
+  const movs = [
+    ...entradas.map(e => ({ ...e, tipo: 'Entrada', projeto: '', empresa: '' })),
+    ...saidas.map(s => ({ ...s, tipo: 'Saida', fornecedor: '', notaFiscal: '' })),
+  ].sort((a, b) => b.data.localeCompare(a.data));
+
+  const header = ['DataHora', 'Tipo', 'Produto', 'Codigo', 'Quantidade', 'Responsavel', 'Fornecedor', 'NotaFiscal', 'Projeto', 'Empresa', 'Destino', 'Observacoes'];
+  const rows = movs.map(m => [
+    m.data, m.tipo, m.produto, m.codigo ?? '', m.quantidade, m.responsavel,
+    m.fornecedor ?? '', m.notaFiscal ?? '', m.projeto ?? '', m.empresa ?? '', m.destino ?? '', m.observacoes ?? '',
+  ]);
+  const csv = gerarCSV(header, rows);
+  baixarCSV(csv, `PowerBI_Movimentacoes_${new Date().toISOString().split('T')[0]}.csv`);
+  return rows.length;
+};
+
+// legacy compat
+export const exportProdutosToExcel = exportarProdutosExcel;
+export const exportMovimentacoesToExcel = exportarMovimentacoesExcel;

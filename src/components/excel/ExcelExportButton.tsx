@@ -1,121 +1,108 @@
 import { Button } from "@/components/ui/button";
-import { FileSpreadsheet, Download, BarChart3 } from "lucide-react";
-import { exportToExcelBI, DashboardExcel } from "@/utils/excelExport";
+import { FileSpreadsheet, Download, BarChart3, Database } from "lucide-react";
+import {
+  montarDashboardExcel,
+  exportToExcelBI,
+  exportarProdutosExcel,
+  exportarEntradasExcel,
+  exportarSaidasExcel,
+  exportarMovimentacoesExcel,
+  exportarPowerBICompleto,
+  exportarPowerBIProdutos,
+} from "@/utils/excelExport";
 import { useToast } from "@/components/ui/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
 interface ExcelExportButtonProps {
-  data?: DashboardExcel;
-  type?: 'full' | 'produtos' | 'movimentacoes';
-  customData?: any[];
   fileName?: string;
+  tipo?: 'completo' | 'produtos' | 'entradas' | 'saidas' | 'movimentacoes';
 }
 
-export function ExcelExportButton({ 
-  data, 
-  type = 'full', 
-  customData = [], 
-  fileName = 'EstoqueMax_Export' 
+export function ExcelExportButton({
+  fileName = 'EstoqueMax',
+  tipo = 'completo',
 }: ExcelExportButtonProps) {
   const { toast } = useToast();
 
-  const handleExportBI = () => {
+  const handleBI = () => {
     try {
-      if (!data) {
-        // Dados de exemplo se não fornecidos
-        const mockData: DashboardExcel = {
-          totalProdutos: 150,
-          valorTotalEstoque: 85420.50,
-          produtos: [
-            {
-              codigo: "PROD001",
-              nome: "Notebook Dell Inspiron",
-              categoria: "Eletrônicos",
-              fornecedor: "TechCorp",
-              localizacao: "A1-B2",
-              estoque: 15,
-              estoqueMinimo: 5,
-              valorUnitario: 2500.00,
-              valorTotal: 37500.00,
-              status: "Ativo",
-              ultimaAtualizacao: new Date().toLocaleDateString('pt-BR')
-            },
-            {
-              codigo: "PROD002", 
-              nome: "Furadeira Bosch",
-              categoria: "Ferramentas",
-              fornecedor: "ToolMax",
-              localizacao: "C3-D1",
-              estoque: 3,
-              estoqueMinimo: 10,
-              valorUnitario: 450.00,
-              valorTotal: 1350.00,
-              status: "Crítico",
-              ultimaAtualizacao: new Date().toLocaleDateString('pt-BR')
-            }
-          ],
-          movimentacoes: [
-            {
-              data: new Date().toLocaleDateString('pt-BR'),
-              tipo: "Entrada",
-              produto: "Notebook Dell Inspiron",
-              quantidade: 10,
-              responsavel: "João Silva",
-              projeto: "Escritório Matriz",
-              empresa: "TechSolutions",
-              observacoes: "Compra programada",
-              valorUnitario: 2500.00,
-              valorTotal: 25000.00
-            }
-          ],
-          estatisticas: [
-            { categoria: "Eletrônicos", quantidade: 45, valor: 67500.00 },
-            { categoria: "Ferramentas", quantidade: 35, valor: 15750.00 },
-            { categoria: "Móveis", quantidade: 25, valor: 8900.00 },
-            { categoria: "Materiais", quantidade: 45, valor: 3270.50 }
-          ]
-        };
-        
-        const exportedFile = exportToExcelBI(mockData, fileName);
+      const data = montarDashboardExcel();
+      if (data.produtos.length === 0 && data.movimentacoes.length === 0) {
         toast({
-          title: "✅ Excel BI Exportado!",
-          description: `Arquivo ${exportedFile} salvo com sucesso`,
+          title: "⚠️ Sem dados",
+          description: "Cadastre produtos ou movimentações antes de exportar.",
+          variant: "destructive",
         });
-      } else {
-        const exportedFile = exportToExcelBI(data, fileName);
-        toast({
-          title: "✅ Excel BI Exportado!",
-          description: `Arquivo ${exportedFile} salvo com sucesso`,
-        });
+        return;
       }
-    } catch (error) {
+      const arquivo = exportToExcelBI(data, fileName + '_BI');
       toast({
-        title: "❌ Erro na Exportação",
-        description: "Não foi possível exportar o arquivo Excel",
-        variant: "destructive"
+        title: "✅ Excel BI exportado!",
+        description: `${arquivo} — ${data.produtos.length} produtos e ${data.movimentacoes.length} movimentações.`,
       });
+    } catch (e) {
+      toast({ title: "❌ Erro ao exportar", description: "Verifique o console.", variant: "destructive" });
     }
   };
 
-  const handleExportSimple = () => {
+  const handleProdutos = () => {
     try {
-      // Lógica para exportação simples
-      toast({
-        title: "✅ Excel Exportado!",
-        description: "Arquivo exportado com sucesso",
-      });
-    } catch (error) {
-      toast({
-        title: "❌ Erro na Exportação",
-        description: "Não foi possível exportar o arquivo",
-        variant: "destructive"
-      });
+      const arquivo = exportarProdutosExcel(fileName + '_Produtos');
+      toast({ title: "✅ Excel Produtos exportado!", description: arquivo });
+    } catch {
+      toast({ title: "❌ Erro ao exportar", variant: "destructive", description: "" });
+    }
+  };
+
+  const handleEntradas = () => {
+    try {
+      const arquivo = exportarEntradasExcel(fileName + '_Entradas');
+      toast({ title: "✅ Excel Entradas exportado!", description: arquivo });
+    } catch {
+      toast({ title: "❌ Erro ao exportar", variant: "destructive", description: "" });
+    }
+  };
+
+  const handleSaidas = () => {
+    try {
+      const arquivo = exportarSaidasExcel(fileName + '_Saidas');
+      toast({ title: "✅ Excel Saídas exportado!", description: arquivo });
+    } catch {
+      toast({ title: "❌ Erro ao exportar", variant: "destructive", description: "" });
+    }
+  };
+
+  const handleMovimentacoes = () => {
+    try {
+      const arquivo = exportarMovimentacoesExcel(fileName + '_Movimentacoes');
+      toast({ title: "✅ Excel Movimentações exportado!", description: arquivo });
+    } catch {
+      toast({ title: "❌ Erro ao exportar", variant: "destructive", description: "" });
+    }
+  };
+
+  const handlePowerBIProdutos = () => {
+    try {
+      const total = exportarPowerBIProdutos();
+      toast({ title: "✅ CSV Power BI exportado!", description: `${total} produtos exportados para CSV.` });
+    } catch {
+      toast({ title: "❌ Erro ao exportar", variant: "destructive", description: "" });
+    }
+  };
+
+  const handlePowerBICompleto = () => {
+    try {
+      const total = exportarPowerBICompleto();
+      toast({ title: "✅ CSV Power BI exportado!", description: `${total} movimentações exportadas para CSV.` });
+    } catch {
+      toast({ title: "❌ Erro ao exportar", variant: "destructive", description: "" });
     }
   };
 
@@ -124,29 +111,56 @@ export function ExcelExportButton({
       <DropdownMenuTrigger asChild>
         <Button className="gradient-primary">
           <FileSpreadsheet className="h-4 w-4 mr-2" />
-          Exportar Excel
+          Exportar
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={handleExportBI} className="cursor-pointer">
-          <BarChart3 className="h-4 w-4 mr-2" />
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Excel (.xlsx)</DropdownMenuLabel>
+
+        <DropdownMenuItem onClick={handleBI} className="cursor-pointer">
+          <BarChart3 className="h-4 w-4 mr-2 text-primary" />
           <div className="flex flex-col">
             <span className="font-medium">Excel BI Completo</span>
-            <span className="text-xs text-muted-foreground">
-              Dashboard + Análises + Gráficos
-            </span>
+            <span className="text-xs text-muted-foreground">Dashboard + Produtos + Movimentações</span>
           </div>
         </DropdownMenuItem>
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuItem onClick={handleExportSimple} className="cursor-pointer">
+
+        <DropdownMenuItem onClick={handleProdutos} className="cursor-pointer">
           <Download className="h-4 w-4 mr-2" />
+          <span>Apenas Produtos</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={handleEntradas} className="cursor-pointer">
+          <Download className="h-4 w-4 mr-2" />
+          <span>Apenas Entradas</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={handleSaidas} className="cursor-pointer">
+          <Download className="h-4 w-4 mr-2" />
+          <span>Apenas Saídas</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={handleMovimentacoes} className="cursor-pointer">
+          <Download className="h-4 w-4 mr-2" />
+          <span>Entradas + Saídas</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Power BI (.csv)</DropdownMenuLabel>
+
+        <DropdownMenuItem onClick={handlePowerBIProdutos} className="cursor-pointer">
+          <Database className="h-4 w-4 mr-2 text-yellow-500" />
           <div className="flex flex-col">
-            <span className="font-medium">Excel Simples</span>
-            <span className="text-xs text-muted-foreground">
-              Apenas dados tabulares
-            </span>
+            <span className="font-medium">CSV Produtos → Power BI</span>
+            <span className="text-xs text-muted-foreground">Importar no Power BI Desktop</span>
+          </div>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={handlePowerBICompleto} className="cursor-pointer">
+          <Database className="h-4 w-4 mr-2 text-yellow-500" />
+          <div className="flex flex-col">
+            <span className="font-medium">CSV Movimentações → Power BI</span>
+            <span className="text-xs text-muted-foreground">Entradas + Saídas unificadas</span>
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
