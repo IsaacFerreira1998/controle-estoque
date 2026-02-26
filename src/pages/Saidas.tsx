@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { PackageMinus, Plus, Calendar, Building2, User, Trash2, X } from "lucide-react";
+import { PackageMinus, Plus, Calendar, Building2, User, Trash2, X, Search, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { lerSaidas, lerProdutos, registrarSaida, desfazerSaida } from "@/utils/storageUtils";
 
 interface Saida {
   id: number;
@@ -22,310 +23,208 @@ interface Saida {
   observacoes?: string;
 }
 
-const STORAGE_KEY = "estoquemax-saidas";
-
-const saidasIniciais: Saida[] = [
-  {
-    id: 1,
-    data: "2024-01-15",
-    produto: "Monitor LED 24\"",
-    codigo: "ELE001",
-    quantidade: 2,
-    responsavel: "Carlos Lima",
-    projeto: "Escritório Matriz",
-    empresa: "TechSolutions",
-    destino: "Sala 102",
-    hora: "14:30"
-  },
-  {
-    id: 2,
-    data: "2024-01-14",
-    produto: "Chave Phillips 6mm",
-    codigo: "FER002",
-    quantidade: 15,
-    responsavel: "Ana Costa",
-    projeto: "Manutenção Predial",
-    empresa: "ManuCorp",
-    destino: "Oficina",
-    hora: "09:15"
-  },
-  {
-    id: 3,
-    data: "2024-01-13",
-    produto: "Mesa Escritório",
-    codigo: "MOV003",
-    quantidade: 1,
-    responsavel: "Roberto Santos",
-    projeto: "Nova Filial",
-    empresa: "Construtora ABC",
-    destino: "Sala Reunião",
-    hora: "16:45"
-  }
-];
-
-function carregarSaidas(): Saida[] {
-  try {
-    const salvo = localStorage.getItem(STORAGE_KEY);
-    if (salvo) return JSON.parse(salvo);
-  } catch { }
-  return saidasIniciais;
-}
-
-function salvarSaidas(saidas: Saida[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(saidas));
-}
-
-const produtos = [
-  { codigo: "ELE001", nome: "Monitor LED 24\"", estoque: 15 },
-  { codigo: "FER002", nome: "Chave Phillips 6mm", estoque: 5 },
-  { codigo: "MOV003", nome: "Mesa Escritório", estoque: 3 }
-];
-
-const projetos = ["Escritório Matriz", "Manutenção Predial", "Nova Filial", "Obra Centro", "Reforma Geral"];
-const empresas = ["TechSolutions", "ManuCorp", "Construtora ABC", "Outros"];
-
-const novaSaidaVazia = {
-  data: new Date().toISOString().split('T')[0],
+const vazio = {
+  data: new Date().toISOString().split("T")[0],
   hora: new Date().toTimeString().slice(0, 5),
   produto: "",
+  codigo: "",
   quantidade: "",
   responsavel: "",
   projeto: "",
   empresa: "",
   destino: "",
-  observacoes: ""
+  observacoes: "",
 };
 
 export default function Saidas() {
-  const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [saidas, setSaidas] = useState<Saida[]>(carregarSaidas);
   const { toast } = useToast();
+  const [mostrarForm, setMostrarForm] = useState(false);
+  const [saidas, setSaidas] = useState<Saida[]>(() => lerSaidas());
+  const [form, setForm] = useState(vazio);
+  const [busca, setBusca] = useState("");
 
-  const [novaSaida, setNovaSaida] = useState(novaSaidaVazia);
+  const produtosCadastrados = lerProdutos();
+  const produtoSelecionado = produtosCadastrados.find(
+    (p: any) => p.codigo === form.codigo
+  );
+  const estoqueAtual = Number(produtoSelecionado?.estoque ?? 0);
+  const qtdSolicitada = Number(form.quantidade ?? 0);
+  const estoqueInsuficiente = produtoSelecionado && qtdSolicitada > estoqueAtual;
 
-  const produtoSelecionado = produtos.find(p => p.codigo === novaSaida.produto);
+  const set = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (produtoSelecionado && parseInt(novaSaida.quantidade) > produtoSelecionado.estoque) {
-      toast({
-        title: "Estoque insuficiente!",
-        description: `Quantidade solicitada (${novaSaida.quantidade}) maior que o estoque disponível (${produtoSelecionado.estoque}).`,
-        variant: "destructive"
-      });
+    if (!form.produto || !form.quantidade || qtdSolicitada <= 0) {
+      toast({ title: "Preencha todos os campos obrigatórios.", variant: "destructive", description: "" });
       return;
     }
 
-    const nova: Saida = {
-      id: Date.now(),
-      data: novaSaida.data,
-      hora: novaSaida.hora,
-      produto: produtoSelecionado?.nome || novaSaida.produto,
-      codigo: novaSaida.produto,
-      quantidade: Number(novaSaida.quantidade),
-      responsavel: novaSaida.responsavel,
-      projeto: novaSaida.projeto,
-      empresa: novaSaida.empresa,
-      destino: novaSaida.destino,
-      observacoes: novaSaida.observacoes
-    };
-
-    const atualizadas = [nova, ...saidas];
-    setSaidas(atualizadas);
-    salvarSaidas(atualizadas);
-
-    toast({
-      title: "Saída registrada!",
-      description: `Saída de ${nova.quantidade} unidades de ${nova.produto} registrada com sucesso.`,
+    const resultado = registrarSaida({
+      data: form.data,
+      hora: form.hora,
+      produto: produtoSelecionado?.nome ?? form.produto,
+      codigo: form.codigo,
+      quantidade: qtdSolicitada,
+      responsavel: form.responsavel,
+      projeto: form.projeto,
+      empresa: form.empresa,
+      destino: form.destino,
+      observacoes: form.observacoes,
     });
 
-    setMostrarFormulario(false);
-    setNovaSaida({
-      ...novaSaidaVazia,
-      data: new Date().toISOString().split('T')[0],
-      hora: new Date().toTimeString().slice(0, 5)
-    });
+    if (!resultado.ok) {
+      toast({ title: "❌ Não foi possível registrar", description: resultado.msg, variant: "destructive" });
+      return;
+    }
+
+    setSaidas(lerSaidas());
+    toast({ title: "✅ Saída registrada!", description: resultado.msg });
+    setMostrarForm(false);
+    setForm({ ...vazio, data: new Date().toISOString().split("T")[0], hora: new Date().toTimeString().slice(0, 5) });
   };
 
   const handleDeletar = (saida: Saida) => {
-    const atualizadas = saidas.filter(s => s.id !== saida.id);
-    setSaidas(atualizadas);
-    salvarSaidas(atualizadas);
+    desfazerSaida(saida.id);
+    setSaidas(lerSaidas());
     toast({
-      title: "Saída removida!",
-      description: `Registro de saída de ${saida.produto} foi excluído.`,
-      variant: "destructive"
+      title: "🔄 Saída removida",
+      description: `${saida.quantidade} un. de "${saida.produto}" devolvidas ao estoque.`,
     });
   };
 
+  const saidasFiltradas = saidas.filter(
+    (s) =>
+      s.produto.toLowerCase().includes(busca.toLowerCase()) ||
+      s.responsavel.toLowerCase().includes(busca.toLowerCase()) ||
+      s.projeto.toLowerCase().includes(busca.toLowerCase()) ||
+      s.empresa.toLowerCase().includes(busca.toLowerCase())
+  );
+
+  const totalUnidades = saidas.reduce((a, s) => a + s.quantidade, 0);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <PackageMinus className="h-8 w-8 text-exit" />
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <PackageMinus className="h-6 w-6 text-exit" />
             Controle de Saídas
           </h1>
-          <p className="text-muted-foreground">
-            Registre retiradas de produtos do estoque
+          <p className="text-sm text-muted-foreground">
+            {saidas.length} registro(s) · {totalUnidades.toLocaleString("pt-BR")} unidades retiradas
           </p>
         </div>
-        <Button
-          onClick={() => setMostrarFormulario(!mostrarFormulario)}
-          className="gradient-danger"
-        >
+        <Button onClick={() => setMostrarForm(!mostrarForm)} className="gradient-danger">
           <Plus className="h-4 w-4 mr-2" />
           Nova Saída
         </Button>
       </div>
 
-      {/* Formulário de Saída */}
-      {mostrarFormulario && (
-        <Card className="border-exit/20 bg-gradient-to-br from-exit/5 to-exit/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-exit">
-              <PackageMinus className="h-5 w-5" />
+      {/* Formulário */}
+      {mostrarForm && (
+        <Card className="border-exit/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-exit">
+              <PackageMinus className="h-4 w-4" />
               Registrar Nova Saída
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="data">Data da Saída</Label>
+              <div>
+                <Label className="text-xs">Data *</Label>
+                <Input type="date" value={form.data} onChange={(e) => set("data", e.target.value)} required />
+              </div>
+
+              <div>
+                <Label className="text-xs">Hora *</Label>
+                <Input type="time" value={form.hora} onChange={(e) => set("hora", e.target.value)} required />
+              </div>
+
+              {/* PRODUTO — lê do cadastro real */}
+              <div className="lg:col-span-1">
+                <Label className="text-xs">Produto *</Label>
+                {produtosCadastrados.length > 0 ? (
+                  <Select
+                    onValueChange={(v) => {
+                      const p = produtosCadastrados.find((x: any) => x.codigo === v);
+                      setForm((f) => ({ ...f, codigo: v, produto: p?.nome ?? v, quantidade: "" }));
+                    }}
+                  >
+                    <SelectTrigger className={estoqueAtual === 0 && produtoSelecionado ? "border-destructive" : ""}>
+                      <SelectValue placeholder="Selecione um produto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {produtosCadastrados.map((p: any) => (
+                        <SelectItem key={p.codigo} value={p.codigo} disabled={Number(p.estoque) === 0}>
+                          {p.codigo} — {p.nome}
+                          <span className={`ml-2 text-xs ${Number(p.estoque) === 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                            ({p.estoque} em estoque{Number(p.estoque) === 0 ? " — SEM ESTOQUE" : ""})
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={form.produto} onChange={(e) => set("produto", e.target.value)} placeholder="Nome do produto" required />
+                )}
+              </div>
+
+              <div>
+                <Label className="text-xs">Quantidade *</Label>
                 <Input
-                  id="data"
-                  type="date"
-                  value={novaSaida.data}
-                  onChange={(e) => setNovaSaida({ ...novaSaida, data: e.target.value })}
+                  type="number"
+                  min="1"
+                  max={estoqueAtual || undefined}
+                  value={form.quantidade}
+                  onChange={(e) => set("quantidade", e.target.value)}
+                  placeholder="2"
                   required
+                  className={estoqueInsuficiente ? "border-destructive" : ""}
                 />
+                {produtoSelecionado && (
+                  <div className={`flex items-center gap-1 text-xs mt-1 ${estoqueInsuficiente ? "text-destructive" : "text-muted-foreground"}`}>
+                    {estoqueInsuficiente && <AlertTriangle className="h-3 w-3" />}
+                    Disponível: {estoqueAtual} un.
+                    {estoqueInsuficiente && " — quantidade maior que o estoque!"}
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="hora">Hora</Label>
-                <Input
-                  id="hora"
-                  type="time"
-                  value={novaSaida.hora}
-                  onChange={(e) => setNovaSaida({ ...novaSaida, hora: e.target.value })}
-                  required
-                />
+              <div>
+                <Label className="text-xs">Responsável *</Label>
+                <Input value={form.responsavel} onChange={(e) => set("responsavel", e.target.value)} placeholder="Nome do responsável" required />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="produto">Produto</Label>
-                <Select onValueChange={(value) => setNovaSaida({ ...novaSaida, produto: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o produto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {produtos.map(produto => (
-                      <SelectItem key={produto.codigo} value={produto.codigo}>
-                        {produto.codigo} - {produto.nome} (Estoque: {produto.estoque})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div>
+                <Label className="text-xs">Projeto</Label>
+                <Input value={form.projeto} onChange={(e) => set("projeto", e.target.value)} placeholder="Obra A, Escritório..." />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="quantidade">Quantidade</Label>
-                <div className="relative">
-                  <Input
-                    id="quantidade"
-                    type="number"
-                    min="1"
-                    value={novaSaida.quantidade}
-                    onChange={(e) => setNovaSaida({ ...novaSaida, quantidade: e.target.value })}
-                    placeholder="2"
-                    max={produtoSelecionado?.estoque || 999}
-                    required
-                  />
-                  {produtoSelecionado && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Disponível: {produtoSelecionado.estoque} unidades
-                    </div>
-                  )}
-                </div>
+              <div>
+                <Label className="text-xs">Empresa</Label>
+                <Input value={form.empresa} onChange={(e) => set("empresa", e.target.value)} placeholder="Nome da empresa" />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="responsavel">Responsável pela Retirada</Label>
-                <Input
-                  id="responsavel"
-                  value={novaSaida.responsavel}
-                  onChange={(e) => setNovaSaida({ ...novaSaida, responsavel: e.target.value })}
-                  placeholder="Carlos Lima"
-                  required
-                />
+              <div>
+                <Label className="text-xs">Destino / Local</Label>
+                <Input value={form.destino} onChange={(e) => set("destino", e.target.value)} placeholder="Sala 102, Oficina..." />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="projeto">Projeto Vinculado</Label>
-                <Select onValueChange={(value) => setNovaSaida({ ...novaSaida, projeto: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o projeto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projetos.map(projeto => (
-                      <SelectItem key={projeto} value={projeto}>
-                        {projeto}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="md:col-span-2">
+                <Label className="text-xs">Observações</Label>
+                <Input value={form.observacoes} onChange={(e) => set("observacoes", e.target.value)} placeholder="Informações adicionais..." />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="empresa">Empresa</Label>
-                <Select onValueChange={(value) => setNovaSaida({ ...novaSaida, empresa: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a empresa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {empresas.map(empresa => (
-                      <SelectItem key={empresa} value={empresa}>
-                        {empresa}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="destino">Destino/Local</Label>
-                <Input
-                  id="destino"
-                  value={novaSaida.destino}
-                  onChange={(e) => setNovaSaida({ ...novaSaida, destino: e.target.value })}
-                  placeholder="Sala 102"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                <Label htmlFor="observacoes">Observações</Label>
-                <Input
-                  id="observacoes"
-                  value={novaSaida.observacoes}
-                  onChange={(e) => setNovaSaida({ ...novaSaida, observacoes: e.target.value })}
-                  placeholder="Observações adicionais..."
-                />
-              </div>
-
-              <div className="md:col-span-2 lg:col-span-3 flex gap-2">
-                <Button type="submit" className="gradient-danger">
-                  Registrar Saída
+              <div className="lg:col-span-3 flex gap-2">
+                <Button type="submit" className="gradient-danger" disabled={!!estoqueInsuficiente}>
+                  Confirmar Saída
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setMostrarFormulario(false)}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Cancelar
+                <Button type="button" variant="outline" onClick={() => setMostrarForm(false)}>
+                  <X className="h-4 w-4 mr-1" /> Cancelar
                 </Button>
               </div>
             </form>
@@ -333,81 +232,66 @@ export default function Saidas() {
         </Card>
       )}
 
-      {/* Histórico de Saídas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Histórico de Saídas ({saidas.length})
+      {/* Busca */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Buscar por produto, responsável, projeto ou empresa..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
+      </div>
+
+      {/* Histórico */}
+      <Card className="shadow-soft">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Histórico de Saídas
+            <Badge variant="secondary" className="ml-auto">{saidasFiltradas.length}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {saidas.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhuma saída registrada ainda.
+          {saidasFiltradas.length === 0 ? (
+            <p className="text-center text-muted-foreground py-10 text-sm">
+              {busca ? "Nenhuma saída encontrada para a busca." : "Nenhuma saída registrada ainda."}
             </p>
           ) : (
-            <div className="space-y-4">
-              {saidas.map((saida) => (
-                <div key={saida.id} className="border border-exit/20 bg-gradient-to-r from-exit/5 to-transparent rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 bg-exit rounded-full"></div>
-                      <div>
-                        <h4 className="font-semibold">{saida.produto}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Código: {saida.codigo}
+            <div className="divide-y">
+              {saidasFiltradas.map((s) => (
+                <div key={s.id} className="py-3 flex items-center justify-between gap-4">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-2 h-2 rounded-full bg-exit mt-2 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{s.produto}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(s.data + "T00:00:00").toLocaleDateString("pt-BR")} às {s.hora}
+                        {s.responsavel && ` · `}
+                        {s.responsavel && <span className="inline-flex items-center gap-0.5"><User className="h-3 w-3" />{s.responsavel}</span>}
+                        {s.projeto && ` · `}
+                        {s.projeto && <span className="inline-flex items-center gap-0.5"><Building2 className="h-3 w-3" />{s.projeto}</span>}
+                      </p>
+                      {(s.empresa || s.destino) && (
+                        <p className="text-xs text-muted-foreground">
+                          {s.empresa}{s.empresa && s.destino && " → "}{s.destino}
                         </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-exit text-exit-foreground">
-                        -{saida.quantidade} unidades
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeletar(saida)}
-                        className="hover:text-destructive"
-                        title="Remover registro"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      )}
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Data/Hora:</span>
-                      <p className="font-medium">
-                        {new Date(saida.data + "T00:00:00").toLocaleDateString('pt-BR')} às {saida.hora}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Responsável:</span>
-                      <p className="font-medium flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {saida.responsavel}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Projeto:</span>
-                      <p className="font-medium flex items-center gap-1">
-                        <Building2 className="h-3 w-3" />
-                        {saida.projeto}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Empresa:</span>
-                      <p className="font-medium">{saida.empresa}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-exit/10">
-                    <span className="text-xs text-muted-foreground">
-                      Destino: {saida.destino}
-                      {saida.observacoes && ` — ${saida.observacoes}`}
-                    </span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge className="bg-exit/10 text-exit border-exit/20 font-semibold">
+                      -{s.quantidade} un.
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 hover:text-destructive"
+                      onClick={() => handleDeletar(s)}
+                      title="Remover e devolver ao estoque"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               ))}
